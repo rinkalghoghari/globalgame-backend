@@ -4,10 +4,12 @@ export const addRating = async (req: any, res: any) => {
   try {
     const { gameId, rating , name } = req.body;
     
-    const ip = req.ip || 
-               req.headers['x-forwarded-for']?.split(',')[0] || 
-               req.connection.remoteAddress;
-
+   let ip = req.headers["x-forwarded-for"]?.split(",")[0].trim() ||
+      req.headers["x-real-ip"] ||
+      req.socket?.remoteAddress ||
+      req.connection?.remoteAddress ||
+      req.ip;
+      
     if (!gameId || !rating || !name) {
       return res.status(400).json({ 
         success: false,
@@ -124,10 +126,10 @@ async function calculateRatingStats(gameId: string) {
     };
   }
 
-  const sum = ratings.reduce((total, r) => total + r.rating, 0);
+  const sum = ratings.reduce((total:any, r: any) => total + r.rating, 0);
   const average = parseFloat((sum / ratings.length).toFixed(1));
   const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-  ratings.forEach(r => {
+  ratings.forEach((r: any) => {
     distribution[r.rating as keyof typeof distribution]++;
   });
   return {
