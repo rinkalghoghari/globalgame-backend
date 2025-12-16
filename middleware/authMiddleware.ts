@@ -1,9 +1,15 @@
-export const authMiddleware = (req:any, res:any, next:any) => {
+import { VercelRequest, VercelResponse } from "@vercel/node";
+
+export const authMiddleware = (
+  req: VercelRequest,
+  res: VercelResponse
+): boolean => {
   const key = req.headers["x-api-key"];
 
   if (key !== process.env.BACKEND_KEY) {
-    return res.status(401).json({ message: "Unauthorized" });
+    res.status(401).json({ message: "Unauthorized" });
+    return false; // ❌ stop execution
   }
-
-  next();
+  
+  return true; // ✅ continue execution
 };
