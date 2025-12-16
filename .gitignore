@@ -40,3 +40,5 @@ coverage/
 # IDE files
 .vscode/
 .idea/
+.vercel
+.env*.local

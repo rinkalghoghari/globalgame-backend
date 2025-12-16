@@ -1,14 +1,21 @@
 {
   "compilerOptions": {
     "target": "ES2020",
-    "module": "CommonJS",
-    "rootDir": "./",
+    "module": "commonjs",
+    "lib": ["ES2020"],
     "outDir": "./dist",
-    "moduleResolution": "node",
+    "rootDir": "./",
+    "strict": true,
     "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
-    "strict": true
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "moduleResolution": "node",
+    "allowSyntheticDefaultImports": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true
   },
-  "exclude": ["node_modules", "dist"]
+  "include": ["api/**/*", "utils/**/*", "models/**/*", "seed/**/*"],
+  "exclude": ["node_modules", "dist", ".vercel"]
 }
