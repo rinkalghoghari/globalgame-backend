@@ -5,13 +5,12 @@ import {
   corsMiddleware,
   setCacheHeaders,
 } from "../../utils/middleware";
-import { CacheService, CACHE_TTL } from "../../utils/cache";
 import Game from "../../models/game.model";
 import Comment from "../../models/comment.model";
 import Rating from "../../models/rating.model";
 import { games } from "../../seed/games";
-
-const GAMES_CACHE_KEY = "all_games";
+import { CACHE_TTL } from "../../utils/cacheTtl";
+import { ensureVisitorId } from "../../utils/setVisiterid";
 
 async function gamesHandler(req: VercelRequest, res: VercelResponse) {
   corsMiddleware(res);
@@ -22,35 +21,24 @@ async function gamesHandler(req: VercelRequest, res: VercelResponse) {
 
   try {
     await connectDB();
-    if (req.method === "GET") {
-      const cachedGames = CacheService.get<any[]>(GAMES_CACHE_KEY);
 
-      if (cachedGames) {
-        setCacheHeaders(res, 86400);
-        return res.status(200).json({
-          success: true,
-          data: cachedGames,
-          cached: true,
-          total: cachedGames.length,
-        });
+    if (req.method === "GET") {
+      if (!req.cookies.visitor_id) {
+        ensureVisitorId(req, res);
       }
 
+      setCacheHeaders(res, CACHE_TTL.GAMES_LIST);
       const gamesData = await Game.find().sort({ createdAt: -1 });
-
-      CacheService.set(GAMES_CACHE_KEY, gamesData, CACHE_TTL.GAMES_LIST);
-      setCacheHeaders(res, 86400);
-
       return res.status(200).json({
         success: true,
         data: gamesData,
-        cached: false,
+        cached: true,
         total: gamesData.length,
       });
     }
+
     if (req.method === "POST") {
       const newGame = await Game.create(req.body || games);
-
-      CacheService.delete(GAMES_CACHE_KEY);
 
       return res.status(201).json({
         success: true,
@@ -58,6 +46,7 @@ async function gamesHandler(req: VercelRequest, res: VercelResponse) {
         data: newGame,
       });
     }
+
     if (req.method === "DELETE") {
       const { id } = req.query;
 
@@ -79,11 +68,6 @@ async function gamesHandler(req: VercelRequest, res: VercelResponse) {
 
       await Comment.deleteMany({ gameId: id });
       await Rating.deleteMany({ gameId: id });
-
-      CacheService.delete(GAMES_CACHE_KEY);
-      CacheService.deletePattern(`game_${id}`);
-      CacheService.deletePattern(`comments_${id}`);
-      CacheService.deletePattern(`ratings_${id}`);
 
       return res.status(200).json({
         success: true,

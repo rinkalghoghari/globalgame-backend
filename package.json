@@ -1,29 +1,24 @@
 {
   "name": "new-games-backend",
   "version": "1.0.0",
-  "main": "server.js",
+  "private": true,
+  "description": "Games Backend - Vercel Serverless",
   "scripts": {
-    "dev": "ts-node server.ts",
-    "build": "tsc",
-    "start": "node dist/server.js"
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
   },
-  "author": "",
-  "license": "ISC",
-  "description": "",
   "dependencies": {
-    "connect-multiparty": "^2.2.0",
-    "dotenv": "^17.2.3",
-    "mongoose": "^9.0.0",
-    "nodemon": "^3.1.11",
-    "serverless-http": "^4.0.0"
+    "dotenv": "^16.0.0",
+    "mongoose": "^8.0.0",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.5",
-    "@types/node": "^24.10.4",
-    "@vercel/node": "^5.5.15",
-    "ts-node-dev": "^2.0.0",
-    "typescript": "^5.9.3",
-    "vercel": "^50.1.0"
+    "@types/node": "^20.0.0",
+    "@vercel/node": "^3.0.0",
+    "typescript": "^5.0.0",
+    "vercel": "^33.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

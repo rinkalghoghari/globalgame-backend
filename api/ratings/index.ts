@@ -1,24 +1,23 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import Rating from "../../models/rating.model";
 import { connectDB } from "../../utils/db";
-import { corsMiddleware, authMiddleware } from "../../utils/middleware";
-import { CacheService } from "../../utils/cache";
+import { corsMiddleware, authMiddleware, setCacheHeaders } from "../../utils/middleware";
+import { CACHE_TTL } from "../../utils/cacheTtl";
 
-export const getNormalizedIp = (req: VercelRequest): string => {
-  const forwarded = req.headers["x-forwarded-for"];
-  let ip =
-    typeof forwarded === "string"
-      ? forwarded.split(",")[0].trim()
-      : req.headers["x-real-ip"]?.toString() ||
-      req.socket?.remoteAddress ||
-      "unknown";
 
-  // remove IPv6 prefix
-  if (ip.startsWith("::ffff:")) {
-    ip = ip.replace("::ffff:", "");
+export const getClientIp = (req: VercelRequest): string => {
+  const forwarded =
+    (req.headers["x-vercel-forwarded-for"] as string) ||
+    (req.headers["x-forwarded-for"] as string);
+
+  if (forwarded) {
+    return forwarded.split(",")[0].trim();
   }
 
-  return ip;
+  const localIp = req.socket?.remoteAddress;
+  if (localIp === "::1") return "127.0.0.1";
+
+  return localIp || "unknown";
 };
 
 const handler = async (req: VercelRequest, res: VercelResponse) => {
@@ -31,21 +30,29 @@ const handler = async (req: VercelRequest, res: VercelResponse) => {
 
   try {
     if (req.method === "POST") {
+      res.setHeader("Cache-Control", "no-store");
       const { gameId, rating, name } = req.body;
-      const ip = getNormalizedIp(req);
-
+      const ip = getClientIp(req);
+    
       if (!gameId || !rating || !name) {
-        return res.status(400).json({ success: false, message: "Missing fields" });
+        return res.status(400).json({
+          success: false,
+          message: "Game ID, rating and name are required",
+          ip,
+        });
       }
 
       if (rating < 1 || rating > 5) {
-        return res.status(400).json({ success: false, message: "Invalid rating" });
+        return res.status(400).json({
+          success: false,
+          message: "Rating must be between 1 and 5",
+        });
       }
 
       const alreadyRated = await Rating.findOne({ gameId, ip });
       if (alreadyRated) {
         return res.status(400).json({
-          success: false,
+          success: true,
           message: "You have already rated this game",
         });
       }
@@ -56,8 +63,8 @@ const handler = async (req: VercelRequest, res: VercelResponse) => {
         name: name.trim(),
         ip,
       });
-      CacheService.deletePattern(`rating_check_${gameId}`);
-      CacheService.deletePattern(`ratings_${gameId}`);
+
+      const stats = await calculateRatingStats(gameId);
 
       return res.status(201).json({
         success: true,
@@ -65,13 +72,14 @@ const handler = async (req: VercelRequest, res: VercelResponse) => {
         data: {
           rating: newRating.rating,
           name: newRating.name,
+          ...stats,
         },
       });
     }
 
+
     if (req.method === "GET") {
-      const { gameId, action } = req.query;
-      const ip = getNormalizedIp(req);
+      const { gameId } = req.query;
 
       if (!gameId || typeof gameId !== "string") {
         return res.status(400).json({
@@ -80,44 +88,14 @@ const handler = async (req: VercelRequest, res: VercelResponse) => {
         });
       }
 
-      if (action === "check") {
-        const cacheKey = `rating_check_${gameId}_${ip}`;
+      setCacheHeaders(res, CACHE_TTL.RATINGS_STATS);
 
-        const cached = CacheService.get<any>(cacheKey);
-        if (cached) {
-          return res.json({
-            success: true,
-            cached: true,
-            data: cached,
-          });
-        }
-
-        const userRating = await Rating.findOne({ gameId, ip });
-
-        const responseData = {
-          hasRated: !!userRating,
-          rating: userRating?.rating || 0,
-        };
-
-        // ✅ CACHE IT
-        CacheService.set(
-          cacheKey,
-          responseData,
-          5 * 60 * 1000 // 5 minutes
-        );
-
-        return res.json({
-          success: true,
-          cached: false,
-          data: responseData,
-        });
-      }
       const stats = await calculateRatingStats(gameId);
 
-      return res.json({
+      return res.status(200).json({
         success: true,
         data: stats,
-        ip
+        cached: true,
       });
     }
 
@@ -137,6 +115,7 @@ const handler = async (req: VercelRequest, res: VercelResponse) => {
 
 export default authMiddleware(handler);
 
+
 async function calculateRatingStats(gameId: string) {
   const ratings = await Rating.find({ gameId });
 
@@ -149,7 +128,7 @@ async function calculateRatingStats(gameId: string) {
   }
 
   const sum = ratings.reduce((t: number, r: any) => t + r.rating, 0);
-  const average = parseFloat((sum / ratings.length).toFixed(1));
+  const average = Number((sum / ratings.length).toFixed(1));
 
   const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
   ratings.forEach((r: any) => {

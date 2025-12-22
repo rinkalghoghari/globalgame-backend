@@ -12,4 +12,6 @@ const ratingSchema = new mongoose.Schema(
   }
 );
 
+ratingSchema.index({ gameId: 1 });
+ratingSchema.index({ gameId: 1, ip: 1 }, { unique: true });
 export default mongoose.model("Rating", ratingSchema);
