@@ -1,8 +1,8 @@
 import { VercelRequest, VercelResponse } from "@vercel/node";
-import { v4 as uuidv4 } from "uuid";
 
-export const ensureVisitorId = (req: VercelRequest, res: VercelResponse) => {
+export const ensureVisitorId = async (req: VercelRequest, res: VercelResponse) => {
   if (!req.cookies?.visitor_id) {
+    const { v4: uuidv4 } = await import('uuid');
     const visitorId = uuidv4();
 
     res.setHeader(

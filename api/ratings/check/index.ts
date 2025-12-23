@@ -40,6 +40,16 @@ const handler = async (req: VercelRequest, res: VercelResponse) => {
 
       res.setHeader("Cache-Control", "no-store");
 
+      if (!visitorId) {
+        return res.json({
+          success: true,
+          data: {
+            hasRated: false,
+            rating: 0,
+          },
+        });
+      }
+
       const rating = await Rating.findOne({ gameId ,visitorId }).lean();
 
       return res.json({
